@@ -39,7 +39,7 @@ int spawn_child(
 
 # TODO
 
-[ ] More docs
-[ ] Support timeout and exit_message
-[ ] Better handle errors
-[ ] Add tests
+- [ ] More docs
+- [ ] Support timeout and exit_message
+- [ ] Better handle errors
+- [ ] Add tests
