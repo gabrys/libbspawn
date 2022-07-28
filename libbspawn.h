@@ -1,22 +1,15 @@
-# libbspawn
+#ifndef LIBBSPAWN_HPP_INCLUDED
+#define LIBBSPAWN_HPP_INCLUDED
 
-A small library wrapping Boost::Process and exposing an API for C programs
+#define BSPAWN_STREAM_IGNORE 1
+#define BSPAWN_STREAM_INHERIT 2
+#define BSPAWN_STREAM_PIPE 3
+#define BSPAWN_STREAM_STDOUT 4
 
-# Motivation
+#ifdef __cplusplus
+extern "C"
+#endif
 
-I needed a simple way to spawn programs on Windows from C. I found surprisingly few
-C libraries doing this, notably `reproc` and `subprocess_h`, but they have thier issues.
-
-An alternative solution could be pulling a big library like GLib or APR (from Apache)
-but it doesn't look like a lot of fun.
-
-Then I found Boost::Process and the only issue was it didn't expose a C API, so I made one:
-
-# API
-
-The library exposes one function:
-
-```
 int spawn_child(
     const char **argv, // args (first is the program to run)
     const char *cwd,   // requested working directory
@@ -35,11 +28,5 @@ int spawn_child(
     int *exit_code,           // out: exit code of the process
     const char **exit_message // out: error message
 );
-```
 
-# TODO
-
-[ ] More docs
-[ ] Support timeout and exit_message
-[ ] Better handle errors
-[ ] Add tests
+#endif /* LIBBSPAWN_HPP_INCLUDED */
