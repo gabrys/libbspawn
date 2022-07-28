@@ -45,3 +45,4 @@ int spawn_child(
 - [ ] Disable running the command via shell automatically
 - [ ] Better handle errors
 - [ ] Add tests
+- [ ] Proper configurable build
