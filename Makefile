@@ -13,13 +13,13 @@ clean:
 
 build/libbspawn.o: libbspawn.h libbspawn.cpp
 	mkdir -p build/
-	$(CXX) -static -lstatic -Wno-narrowing -I build/$(BOOST_DIRNAME) -fPIC -c -o build/libbspawn.o libbspawn.cpp
+	$(CXX) -Os -static -lstatic -Wno-narrowing -I build/$(BOOST_DIRNAME) -fPIC -c -o build/libbspawn.o libbspawn.cpp
 
 build/libbspawn.a: build/libbspawn.o
 	$(AR) rcs build/libbspawn.a build/libbspawn.o
 
 cspawn: cspawn.c libbspawn.h build/libbspawn.a
-	$(CC) --static -o cspawn cspawn.c build/libbspawn.a -lstdc++
+	$(CC) -flto -Os --static -o cspawn cspawn.c build/libbspawn.a -lstdc++
 
 get_boost:
 	mkdir -p build
