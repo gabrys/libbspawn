@@ -41,5 +41,7 @@ int spawn_child(
 
 - [ ] More docs
 - [ ] Support timeout and exit_message
+- [ ] Find the executable in PATH
+- [ ] Disable running the command via shell automatically
 - [ ] Better handle errors
 - [ ] Add tests
