@@ -1,28 +1,27 @@
+AR=ar
 CC=gcc
 CXX=g++
-AR=ar
-BOOST_VERSION=1.79.0
-BOOST_DIRNAME=boost_1_79_0
-BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/$(BOOST_VERSION)/source/$(BOOST_DIRNAME).tar.bz2
+EXTRA_LIBS=""
+LDEXPORT="-static -s -pthread"
 
-default: cspawn
+lib: build/libbspawn.a
 
 clean:
-	rm -rf build/
-	rm -f cspawn
+	rm -f build/lib* cspawn cspawn.exe
 
 build/libbspawn.o: libbspawn.h libbspawn.cpp
 	mkdir -p build/
-	$(CXX) -Os -static -lstatic -Wno-narrowing -I build/$(BOOST_DIRNAME) -fPIC -c -o build/libbspawn.o libbspawn.cpp
+	$(CXX) -Os -static -lstatic -Wno-narrowing -fPIC -c -o build/libbspawn.o libbspawn.cpp
 
 build/libbspawn.a: build/libbspawn.o
 	$(AR) rcs build/libbspawn.a build/libbspawn.o
 
+# test C program linking statically to our library for Linux
 cspawn: cspawn.c libbspawn.h build/libbspawn.a
-	$(CC) -flto -Os --static -o cspawn cspawn.c build/libbspawn.a -lstdc++
+	$(CC) -flto=auto -Os -static -pthread -o cspawn cspawn.c build/libbspawn.a \
+		-lboost_filesystem -lboost_atomic -lstdc++
 
-get_boost:
-	mkdir -p build
-	cd build && wget -c $(BOOST_URL)
-	cd build && rm -rf $(BOOST_DIRNAME)
-	cd build && tar -xjf $(BOOST_DIRNAME).tar.bz2
+# ... and for Windows
+cspawn.exe: cspawn.c libbspawn.h build/libbspawn.a
+	$(CC) -flto=auto -Os -static -pthread -o cspawn.exe cspawn.c build/libbspawn.a \
+		-lboost_filesystem -lboost_atomic -lstdc++ -lws2_32"
