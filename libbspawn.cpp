@@ -44,15 +44,15 @@ char *read_all_from_stream(std::istream &in)
 #define BSPAWN_STREAM_PIPE 3
 #define BSPAWN_STREAM_STDOUT 4
 
-#define _setup_stdin(stdin_policy, stdin_file, ...) (                                                                      \
-    (stdin_policy == BSPAWN_STREAM_IGNORE) ? /*                              */ bp::child(__VA_ARGS__, bp::std_in < bp::null)   \
-                                      : ((stdin_policy == BSPAWN_STREAM_PIPE) ? bp::child(__VA_ARGS__, bp::std_in < stdin_file) \
-                                                                         : bp::child(__VA_ARGS__, bp::std_in < stdin)))
+#define _setup_stdin(stdin_policy, stdin_file, ...) (                                                                                \
+    (stdin_policy == BSPAWN_STREAM_IGNORE) ? /*                              */ bp::child(__VA_ARGS__, bp::std_in < bp::null)        \
+                                           : ((stdin_policy == BSPAWN_STREAM_PIPE) ? bp::child(__VA_ARGS__, bp::std_in < stdin_file) \
+                                                                                   : bp::child(__VA_ARGS__, bp::std_in < stdin)))
 
-#define _setup_stdin_and_stdout(stdin_policy, stdin_file, stdout_policy, stdout_stream, ...) (                                                                 \
-    (stdout_policy == BSPAWN_STREAM_IGNORE) ? /*                               */ _setup_stdin(stdin_policy, stdin_file, __VA_ARGS__, bp::std_out > bp::null)       \
-                                       : ((stdout_policy == BSPAWN_STREAM_PIPE) ? _setup_stdin(stdin_policy, stdin_file, __VA_ARGS__, bp::std_out > *stdout_stream) \
-                                                                           : _setup_stdin(stdin_policy, stdin_file, __VA_ARGS__, bp::std_out > stdout)))
+#define _setup_stdin_and_stdout(stdin_policy, stdin_file, stdout_policy, stdout_stream, ...) (                                                                           \
+    (stdout_policy == BSPAWN_STREAM_IGNORE) ? /*                               */ _setup_stdin(stdin_policy, stdin_file, __VA_ARGS__, bp::std_out > bp::null)            \
+                                            : ((stdout_policy == BSPAWN_STREAM_PIPE) ? _setup_stdin(stdin_policy, stdin_file, __VA_ARGS__, bp::std_out > *stdout_stream) \
+                                                                                     : _setup_stdin(stdin_policy, stdin_file, __VA_ARGS__, bp::std_out > stdout)))
 
 template <typename... Types>
 bp::child _start_process(
@@ -80,39 +80,50 @@ bp::child _start_process(
 }
 
 int spawn_child(
-    const char **argv, // args (first is the program to run)
-    const char *cwd,   // requested working directory
-    const char **envp, // environment to set in the standard form
-    int timeout,       // timeout in milliseconds (0 means no limit)
-    int stdin_policy,  // one of: BSPAWN_STREAM_IGNORE, BSPAWN_STREAM_INHERIT, BSPAWN_STREAM_PIPE (read from stdin_data)
-    int stdout_policy, // one of: BSPAWN_STREAM_IGNORE, BSPAWN_STREAM_INHERIT, BSPAWN_STREAM_PIPE (save to stdout_data)
-    int stderr_policy, // one of: BSPAWN_STREAM_IGNORE, BSPAWN_STREAM_INHERIT, BSPAWN_STREAM_PIPE (save to stderr_data)
-    // * BSPAWN_STREAM_IGNORE   equivalent to 0</dev/null, 1>/dev/null, 2>/dev/null respectively
-    // * BSPAWN_STREAM_INHERIT  attach the stdin/stdout/stderr to the parent's stdin/stdout/stderr. This is useful for interactive processes
-    // * BSPAWN_STREAM_PIPE     feed the process data from stdin_data and save output to stdout_data and stderr_data respectively
-    // * stderr_policy=BSPAWN_STREAM_STDOUT  equivalent to 2>&1 (put stderr wherever stdout goes)
-    const char *stdin_data,   // used if stdin_policy=BSPAWN_STREAM_PIPE
-    const char **stdout_data, // out: set if stdout_policy=BSPAWN_STREAM_PIPE
-    const char **stderr_data, // out: set if stderr_policy=BSPAWN_STREAM_PIPE
-    int *exit_code,           // out: exit code of the process
-    const char **exit_message // out: error message
-)
+    const char **argv,
+    const char *cwd,
+    const char **envp,
+    int timeout,
+    int stdin_policy,
+    int stdout_policy,
+    int stderr_policy,
+    const char *stdin_data,
+    const char **stdout_data,
+    const char **stderr_data,
+    int *exit_code,
+    const char **exit_message)
 {
+    std::FILE *stdin_file = std::tmpfile();
     bp::ipstream stdout_stream;
     bp::ipstream stderr_stream;
+
     std::error_code child_error;
 
-    std::FILE *stdin_file = std::tmpfile();
+    if (argv == NULL || argv[0] == NULL)
+    {
+        std::cerr << "Incorrect argv passed" << std::endl;
+        return 6;
+    }
 
-    std::vector<std::string> child_args;
+    boost::filesystem::path cmd_path(argv[0]);
+    if (strchr(argv[0], '/') == NULL)
+    {
+        cmd_path = bp::search_path(argv[0]);
+        if (cmd_path.empty())
+        {
+            std::cerr << "Didn't find cmd in PATH" << std::endl;
+            return 7;
+        }
+    }
+    if (!boost::filesystem::exists(cmd_path))
+    {
+        std::cerr << "cmd is not a valid command" << std::endl;
+        return 9;
+    }
 
-    for (int i = 0; argv[i] != NULL; i++)
-        child_args.push_back(argv[i]);
-
-    std::string child_cwd(cwd);
-
-    // Search PATH: requires linking to boost::filesystem
-    // boost::filesystem::path p = bp::search_path("bash");
+    std::vector<std::string> cmd_args;
+    for (int i = 1; argv[i] != NULL; i++)
+        cmd_args.push_back(argv[i]);
 
     bp::child child = _start_process(
         stdin_policy,
@@ -121,7 +132,8 @@ int spawn_child(
         &stdout_stream,
         stderr_policy,
         &stderr_stream,
-        child_args,
+        cmd_path,
+        cmd_args,
         bp::start_dir = cwd,
         prepare_environment(envp));
 
@@ -154,7 +166,8 @@ int spawn_child(
 
     int child_exit_code = child.exit_code();
 
-    *exit_code = child_exit_code;
+    if (exit_code)
+        *exit_code = child_exit_code;
 
     // For now
     return 0;

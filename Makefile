@@ -1,8 +1,6 @@
 AR=ar
 CC=gcc
 CXX=g++
-EXTRA_LIBS=""
-LDEXPORT="-static -s -pthread"
 
 lib: build/libbspawn.a
 
