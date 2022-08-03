@@ -1,0 +1,207 @@
+diff --git a/libc/calls/mkntcmdline.c b/libc/calls/mkntcmdline.c
+index c09b5ea42..8aa8faa90 100644
+--- a/libc/calls/mkntcmdline.c
++++ b/libc/calls/mkntcmdline.c
+@@ -23,11 +23,11 @@
+ #include "libc/str/utf16.h"
+ #include "libc/sysv/errfuns.h"
+ 
+-#define APPEND(c)           \
++#define xAPPEND(c)           \
+   do {                      \
+     cmdline[k++] = c;       \
+     if (k == ARG_MAX / 2) { \
+-      return e2big();       \
++      errno = E2BIG; return -1;  \
+     }                       \
+   } while (0)
+ 
+@@ -73,8 +73,8 @@ textwindows int mkntcmdline(char16_t cmdline[ARG_MAX / 2], const char *prog,
+     argv = ansiargv;
+   }
+   for (arg = prog, k = i = 0; arg; arg = argv[++i]) {
+-    if (i) APPEND(u' ');
+-    if ((needsquote = NeedsQuotes(arg))) APPEND(u'"');
++    if (i) xAPPEND(u' ');
++    if ((needsquote = NeedsQuotes(arg))) xAPPEND(u'"');
+     for (slashes = j = 0;;) {
+       x = arg[j++] & 255;
+       if (x >= 0300) {
+@@ -116,27 +116,27 @@ textwindows int mkntcmdline(char16_t cmdline[ARG_MAX / 2], const char *prog,
+         ++slashes;
+       } else if (x == '"') {
+         for (s = 0; s < slashes * 2; ++s) {
+-          APPEND(u'\\');
++          xAPPEND(u'\\');
+         }
+         slashes = 0;
+-        APPEND(u'\\');
+-        APPEND(u'"');
++        xAPPEND(u'\\');
++        xAPPEND(u'"');
+       } else {
+         for (s = 0; s < slashes; ++s) {
+-          APPEND(u'\\');
++          xAPPEND(u'\\');
+         }
+         slashes = 0;
+         w = EncodeUtf16(x);
+         do {
+-          APPEND(w);
++          xAPPEND(w);
+         } while ((w >>= 16));
+       }
+     }
+     for (s = 0; s < (slashes << needsquote); ++s) {
+-      APPEND(u'\\');
++      xAPPEND(u'\\');
+     }
+     if (needsquote) {
+-      APPEND(u'"');
++      xAPPEND(u'"');
+     }
+   }
+   cmdline[k] = u'\0';
+diff --git a/libc/calls/mkntenvblock.c b/libc/calls/mkntenvblock.c
+index f68ad045b..082535acf 100644
+--- a/libc/calls/mkntenvblock.c
++++ b/libc/calls/mkntenvblock.c
+@@ -33,7 +33,7 @@
+ 
+ #define ToUpper(c) ((c) >= 'a' && (c) <= 'z' ? (c) - 'a' + 'A' : (c))
+ 
+-static inline int IsAlpha(int c) {
++static inline int yIsAlpha(int c) {
+   return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z');
+ }
+ 
+@@ -72,13 +72,13 @@ static textwindows void FixPath(char *path) {
+ 
+   // turn \c\... into c:\...
+   p = path;
+-  if ((p[0] == '/' | p[0] == '\\') && IsAlpha(p[1]) &&
++  if ((p[0] == '/' | p[0] == '\\') && yIsAlpha(p[1]) &&
+       (p[2] == '/' || p[2] == '\\')) {
+     p[0] = p[1];
+     p[1] = ':';
+   }
+   for (; *p; ++p) {
+-    if (p[0] == ';' && (p[1] == '/' || p[1] == '\\') && IsAlpha(p[2]) &&
++    if (p[0] == ';' && (p[1] == '/' || p[1] == '\\') && yIsAlpha(p[2]) &&
+         (p[3] == '/' || p[3] == '\\')) {
+       p[1] = p[2];
+       p[2] = ':';
+@@ -99,7 +99,7 @@ static textwindows void InsertString(char **a, size_t i, char *s,
+   size_t j, k;
+ 
+   // apply fixups to var=/c/...
+-  if ((v = StrChr(s, '=')) && v[1] == '/' && IsAlpha(v[2]) && v[3] == '/') {
++  if ((v = StrChr(s, '=')) && v[1] == '/' && yIsAlpha(v[2]) && v[3] == '/') {
+     v = buf + *bufi;
+     for (k = 0; s[k]; ++k) {
+       if (*bufi + 1 < ARG_MAX) {
+@@ -173,7 +173,7 @@ textwindows int mkntenvblock(char16_t envvars[ARG_MAX / 2], char *const envp[],
+       do {
+         envvars[k++] = w & 0xffff;
+         if (k == ARG_MAX / 2) {
+-          return e2big();
++          errno=E2BIG; return -1;
+         }
+       } while ((w >>= 16));
+     } while (x);
+diff --git a/libc/calls/mkntpath.c b/libc/calls/mkntpath.c
+index 2dfa14f46..bccdf0a6a 100644
+--- a/libc/calls/mkntpath.c
++++ b/libc/calls/mkntpath.c
+@@ -31,7 +31,7 @@ static inline bool IsSlash(char c) {
+   return c == '/' || c == '\\';
+ }
+ 
+-static inline int IsAlpha(int c) {
++static inline int xIsAlpha(int c) {
+   return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z');
+ }
+ 
+@@ -84,12 +84,12 @@ textwindows int __mkntpath2(const char *path,
+   bool isdospath;
+   char16_t c, *p;
+   size_t i, j, n, m, x, z;
+-  if (!path) return efault();
++  if (!path) { errno=EFAULT; return -1; };
+   path = FixNtMagicPath(path, flags);
+   p = path16;
+   q = path;
+ 
+-  if (IsSlash(q[0]) && IsAlpha(q[1]) && IsSlash(q[2])) {
++  if (IsSlash(q[0]) && xIsAlpha(q[1]) && IsSlash(q[2])) {
+     z = MIN(32767, PATH_MAX);
+     // turn "\c\foo" into "\\?\c:\foo"
+     p[0] = '\\';
+@@ -103,7 +103,7 @@ textwindows int __mkntpath2(const char *path,
+     q += 3;
+     z -= 7;
+     x = 7;
+-  } else if (IsSlash(q[0]) && IsAlpha(q[1]) && IsSlash(q[2])) {
++  } else if (IsSlash(q[0]) && xIsAlpha(q[1]) && IsSlash(q[2])) {
+     z = MIN(32767, PATH_MAX);
+     // turn "c:\foo" into "\\?\c:\foo"
+     p[0] = '\\';
+@@ -126,22 +126,22 @@ textwindows int __mkntpath2(const char *path,
+   }
+ 
+   // turn /tmp into GetTempPath()
+-  if (!x && IsSlash(q[0]) && q[1] == 't' && q[2] == 'm' && q[3] == 'p' &&
++  /*if (!x && IsSlash(q[0]) && q[1] == 't' && q[2] == 'm' && q[3] == 'p' &&
+       (IsSlash(q[4]) || !q[4])) {
+     m = GetTempPath(z, p);
+     if (!q[4]) return m;
+     q += 5;
+     p += m;
+     z -= m;
+-  } else {
++  } else {*/
+     m = 0;
+-  }
++  //}
+ 
+   // turn utf-8 into utf-16
+   n = tprecode8to16(p, z, q).ax;
+   if (n >= z - 1) {
+     STRACE("path too long for windows: %#s", path);
+-    return enametoolong();
++    errno=ENAMETOOLONG; return -1;
+   }
+ 
+   // 1. turn `/` into `\`
+diff --git a/libc/intrin/winerr.greg.c b/libc/intrin/winerr.greg.c
+index 80360fa62..d12f37b27 100644
+--- a/libc/intrin/winerr.greg.c
++++ b/libc/intrin/winerr.greg.c
+@@ -32,12 +32,6 @@
+  * @note this is a code-size saving device
+  */
+ privileged int64_t __winerr(void) {
+-  errno_t e;
+-  if (IsWindows()) {
+-    e = __dos2errno(__imp_GetLastError());
+-  } else {
+-    e = ENOSYS;
+-  }
+-  errno = e;
++  errno = WSAGetLastError();
+   return -1;
+ }
+diff --git a/libc/str/str.h b/libc/str/str.h
+index b40970ea6..b6ecfea93 100644
+--- a/libc/str/str.h
++++ b/libc/str/str.h
+@@ -247,7 +247,8 @@ size_t strnclen(const char *, size_t) nosideeffect;
+ size_t strclen16(const char16_t *) nosideeffect;
+ size_t strnclen16(const char16_t *, size_t) nosideeffect;
+ 
+-typedef unsigned wctype_t;
++//typedef unsigned wctype_t;
++typedef unsigned short wctype_t;
+ wctype_t wctype(const char *) strlenesque;
+ int iswctype(wint_t, wctype_t) pureconst;
+ 
