@@ -108,7 +108,7 @@ int main(int argc, char **argv)
     spawn_child(
         exec_argv,
         cwd,
-        envp,
+        envp_len == 0 ? NULL : envp,
         timeout,
         stdin_policy,
         stdout_policy,

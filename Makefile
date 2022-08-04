@@ -22,4 +22,4 @@ cspawn: cspawn.c libbspawn.h build/libbspawn.a
 # ... and for Windows
 cspawn.exe: cspawn.c libbspawn.h build/libbspawn.a
 	$(CC) -flto=auto -Os -static -pthread -o cspawn.exe cspawn.c build/libbspawn.a \
-		-lboost_filesystem -lboost_atomic -lstdc++ -lws2_32"
+		-lboost_filesystem -lboost_atomic -lstdc++ -lbcrypt -lws2_32
